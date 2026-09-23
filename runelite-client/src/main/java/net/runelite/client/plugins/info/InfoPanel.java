@@ -35,8 +35,7 @@ import java.awt.GridLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.concurrent.ScheduledExecutorService;
-import javax.annotation.Nullable;
-import javax.inject.Singleton;
+import javax.inject.Named;
 import javax.swing.Box;
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -44,19 +43,18 @@ import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 import net.runelite.api.Client;
-import net.runelite.api.events.SessionClose;
-import net.runelite.api.events.SessionOpen;
 import net.runelite.client.RuneLiteProperties;
 import net.runelite.client.account.SessionManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.SessionClose;
+import net.runelite.client.events.SessionOpen;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.LinkBrowser;
 
-@Singleton
 public class InfoPanel extends PluginPanel
 {
 	private static final String RUNELITE_LOGIN = "https://runelite_login/";
@@ -69,13 +67,10 @@ public class InfoPanel extends PluginPanel
 
 	private final JLabel loggedLabel = new JLabel();
 	private final JRichTextPane emailLabel = new JRichTextPane();
+	private JPanel actionsContainer;
 
 	@Inject
-	@Nullable
 	private Client client;
-
-	@Inject
-	private RuneLiteProperties runeLiteProperties;
 
 	@Inject
 	private EventBus eventBus;
@@ -86,13 +81,33 @@ public class InfoPanel extends PluginPanel
 	@Inject
 	private ScheduledExecutorService executor;
 
+	@Inject
+	@Named("runelite.version")
+	private String runeliteVersion;
+
+	@Inject
+	@Named("runelite.github.link")
+	private String githubLink;
+
+	@Inject
+	@Named("runelite.discord.invite")
+	private String discordInvite;
+
+	@Inject
+	@Named("runelite.patreon.link")
+	private String patreonLink;
+
+	@Inject
+	@Named("runelite.wiki.link")
+	private String wikiLink;
+
 	static
 	{
-		ARROW_RIGHT_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(InfoPanel.class, "/util/arrow_right.png"));
-		GITHUB_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(InfoPanel.class, "github_icon.png"));
-		DISCORD_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(InfoPanel.class, "discord_icon.png"));
-		PATREON_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(InfoPanel.class, "patreon_icon.png"));
-		WIKI_ICON = new ImageIcon(ImageUtil.getResourceStreamFromClass(InfoPanel.class, "wiki_icon.png"));
+		ARROW_RIGHT_ICON = new ImageIcon(ImageUtil.loadImageResource(InfoPanel.class, "/util/arrow_right.png"));
+		GITHUB_ICON = new ImageIcon(ImageUtil.loadImageResource(InfoPanel.class, "github_icon.png"));
+		DISCORD_ICON = new ImageIcon(ImageUtil.loadImageResource(InfoPanel.class, "discord_icon.png"));
+		PATREON_ICON = new ImageIcon(ImageUtil.loadImageResource(InfoPanel.class, "patreon_icon.png"));
+		WIKI_ICON = new ImageIcon(ImageUtil.loadImageResource(InfoPanel.class, "wiki_icon.png"));
 	}
 
 	void init()
@@ -108,17 +123,13 @@ public class InfoPanel extends PluginPanel
 
 		final Font smallFont = FontManager.getRunescapeSmallFont();
 
-		JLabel version = new JLabel(htmlLabel("RuneLite version: ", runeLiteProperties.getVersion()));
+		JLabel version = new JLabel(htmlLabel("RuneLite version: ", runeliteVersion));
 		version.setFont(smallFont);
 
 		JLabel revision = new JLabel();
 		revision.setFont(smallFont);
 
-		String engineVer = "Unknown";
-		if (client != null)
-		{
-			engineVer = String.format("Rev %d", client.getRevision());
-		}
+		String engineVer = engineVer = String.format("Rev %d", client.getRevision());
 
 		revision.setText(htmlLabel("Oldschool revision: ", engineVer));
 
@@ -150,27 +161,39 @@ public class InfoPanel extends PluginPanel
 		versionPanel.add(loggedLabel);
 		versionPanel.add(emailLabel);
 
-		updateLoggedIn();
-
-		JPanel actionsContainer = new JPanel();
+		actionsContainer = new JPanel();
 		actionsContainer.setBorder(new EmptyBorder(10, 0, 0, 0));
-		actionsContainer.setLayout(new GridLayout(4, 1, 0, 10));
+		actionsContainer.setLayout(new GridLayout(0, 1, 0, 10));
 
-		actionsContainer.add(buildLinkPanel(GITHUB_ICON, "Report an issue or", "make a suggestion", runeLiteProperties.getGithubLink()));
-		actionsContainer.add(buildLinkPanel(DISCORD_ICON, "Talk to us on our", "discord server", runeLiteProperties.getDiscordInvite()));
-		actionsContainer.add(buildLinkPanel(PATREON_ICON, "Become a patron to", "help support RuneLite", runeLiteProperties.getPatreonLink()));
-		actionsContainer.add(buildLinkPanel(WIKI_ICON, "Information about", "RuneLite and plugins", runeLiteProperties.getWikiLink()));
+		actionsContainer.add(buildLinkPanel(GITHUB_ICON, "Report an issue or", "make a suggestion", githubLink));
+		actionsContainer.add(buildLinkPanel(DISCORD_ICON, "Talk to us on our", "Discord server", discordInvite));
+		actionsContainer.add(buildLinkPanel(PATREON_ICON, "Become a patron to", "help support RuneLite", patreonLink));
+		actionsContainer.add(buildLinkPanel(WIKI_ICON, "Information about", "RuneLite and plugins", wikiLink));
 
 		add(versionPanel, BorderLayout.NORTH);
 		add(actionsContainer, BorderLayout.CENTER);
 
+		updateLoggedIn();
 		eventBus.register(this);
+	}
+
+	void deinit()
+	{
+		eventBus.unregister(this);
 	}
 
 	/**
 	 * Builds a link panel with a given icon, text and url to redirect to.
 	 */
 	private static JPanel buildLinkPanel(ImageIcon icon, String topText, String bottomText, String url)
+	{
+		return buildLinkPanel(icon, topText, bottomText, () -> LinkBrowser.browse(url));
+	}
+
+	/**
+	 * Builds a link panel with a given icon, text and callable to call.
+	 */
+	private static JPanel buildLinkPanel(ImageIcon icon, String topText, String bottomText, Runnable callback)
 	{
 		JPanel container = new JPanel();
 		container.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -193,7 +216,6 @@ public class InfoPanel extends PluginPanel
 			@Override
 			public void mousePressed(MouseEvent mouseEvent)
 			{
-				LinkBrowser.browse(url);
 				container.setBackground(pressedColor);
 				textContainer.setBackground(pressedColor);
 			}
@@ -201,6 +223,7 @@ public class InfoPanel extends PluginPanel
 			@Override
 			public void mouseReleased(MouseEvent e)
 			{
+				callback.run();
 				container.setBackground(hoverColor);
 				textContainer.setBackground(hoverColor);
 			}
@@ -251,13 +274,13 @@ public class InfoPanel extends PluginPanel
 		{
 			emailLabel.setContentType("text/plain");
 			emailLabel.setText(name);
-			loggedLabel.setText("Logged in as");
+			loggedLabel.setText("Signed in as");
 		}
 		else
 		{
 			emailLabel.setContentType("text/html");
-			emailLabel.setText("<a href=\"" + RUNELITE_LOGIN + "\">Login</a> to sync settings to the cloud.");
-			loggedLabel.setText("Not logged in");
+			emailLabel.setText("<a href=\"" + RUNELITE_LOGIN + "\">Sign in</a> to sync settings to the cloud.");
+			loggedLabel.setText("Not signed in");
 		}
 	}
 

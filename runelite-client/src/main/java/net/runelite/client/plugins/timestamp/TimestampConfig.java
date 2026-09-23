@@ -29,20 +29,43 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("timestamp")
+@ConfigGroup(TimestampConfig.GROUP)
 public interface TimestampConfig extends Config
 {
+	String GROUP = "timestamp";
+
 	@ConfigItem(
 		keyName = "opaqueTimestamp",
 		name = "Timestamps (opaque)",
-		description = "Colour of Timestamps from the Timestamps plugin (opaque)"
+		position = 1,
+		description = "Color of timestamps from the Timestamps plugin (opaque)."
 	)
 	Color opaqueTimestamp();
 
 	@ConfigItem(
 		keyName = "transparentTimestamp",
 		name = "Timestamps (transparent)",
-		description = "Colour of Timestamps from the Timestamps plugin (transparent)"
+		position = 2,
+		description = "Color of timestamps from the Timestamps plugin (transparent)."
 	)
 	Color transparentTimestamp();
+
+	@ConfigItem(
+		keyName = "format",
+		name = "Timestamp format",
+		position = 3,
+		description = "Customize your timestamp format by using the following characters:<br>" +
+			"'yyyy' : year<br>" +
+			"'MM' : month<br>" +
+			"'dd' : day<br>" +
+			"'HH' : hour in 24 hour format<br>" +
+			"'hh' : hour in 12 hour format<br>" +
+			"'mm' : minute<br>" +
+			"'ss' : second<br>" +
+			"'a'  : AM/PM"
+	)
+	default String timestampFormat()
+	{
+		return "[HH:mm]";
+	}
 }

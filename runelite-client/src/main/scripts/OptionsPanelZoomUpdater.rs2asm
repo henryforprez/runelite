@@ -1,83 +1,86 @@
-.id                 1049
-.int_stack_count    0
-.string_stack_count 0
-.int_var_count      6
-.string_var_count   0
+.id                       1049
+.int_arg_count            0
+.long_arg_count           0
+.obj_arg_count            0
 ; locals
 ; 0 resizableZoomRange
 ; 1 fixedZoomRange
 ; 2 bar size
-   load_int               896
-   load_string            "innerZoomLimit"
-   runelite_callback     
-   load_int               128
-   load_string            "outerZoomLimit"
-   runelite_callback
-   isub                  
+   get_varc_int           1341
+   get_varc_int           1340
+   sub                   
    istore                 0
-   load_int               896
-   load_string            "innerZoomLimit"
-   runelite_callback     
-   load_int               128
-   load_string            "outerZoomLimit"
-   runelite_callback
-   isub                  
+   get_varc_int           1339
+   get_varc_int           1338
+   sub                   
    istore                 1
-   load_int               17104910
-   widget_get_width_widget
-   load_int               17104911
-   widget_get_width_widget
-   isub                  
+   iload                  0
+   iconst                 0
+   if_icmpeq              LABEL15
+   iload                  1
+   iconst                 0
+   if_icmpeq              LABEL15
+   jump                   LABEL22
+LABEL15:
+   iconst                 0
+   iconst                 0
+   iconst                 0
+   iconst                 0
+   iconst                 7602233
+   if_setposition        
+   return                
+LABEL22:
+   iconst                 7602232
+   if_getwidth           
+   iconst                 7602233
+   if_getwidth           
+   sub                   
    istore                 2
-   load_int               0
+   iconst                 0
    istore                 3
-   load_int               0
+   iconst                 0
    istore                 4
-   get_viewport_size     
+   viewport_geteffectivesize
    istore                 4
    istore                 3
-   load_int               0
+   iconst                 0
    istore                 5
    iload                  3
-   load_int               334
-   if_icmpgt              LABEL27
-   jump                   LABEL36
-LABEL27:
-   get_varc               74
-   load_int               128
-   load_string            "outerZoomLimit"
-   runelite_callback
-   isub                  
+   iconst                 334
+   if_icmpgt              LABEL41
+   jump                   LABEL50
+LABEL41:
+   get_varc_int           74
+   get_varc_int           1340
+   sub                   
    iload                  0
-   load_string            "zoomExpToLin"
+   sconst                 "zoomExpToLin"
    runelite_callback     
    pop_int               
    iload                  2
-   imul                  
+   multiply              
    iload                  0
-   idiv                  
+   div                   
    istore                 5
-   jump                   LABEL44
-LABEL36:
-   get_varc               73
-   load_int               128
-   load_string            "outerZoomLimit"
-   runelite_callback
-   isub                  
+   jump                   LABEL58
+LABEL50:
+   get_varc_int           73
+   get_varc_int           1338
+   sub                   
    iload                  0
-   load_string            "zoomExpToLin"
+   sconst                 "zoomExpToLin"
    runelite_callback     
    pop_int               
    iload                  2
-   imul                  
+   multiply              
    iload                  1
-   idiv                  
+   div                   
    istore                 5
-LABEL44:
+LABEL58:
    iload                  5
-   load_int               0
-   load_int               0
-   load_int               0
-   load_int               17104911
-   widget_put_position_widget
+   iconst                 0
+   iconst                 0
+   iconst                 0
+   iconst                 7602233
+   if_setposition        
    return                

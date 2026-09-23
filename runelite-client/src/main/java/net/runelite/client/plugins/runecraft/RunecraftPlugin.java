@@ -26,38 +26,33 @@ package net.runelite.client.plugins.runecraft;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Provides;
+import java.awt.Color;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.inject.Inject;
 import lombok.AccessLevel;
 import lombok.Getter;
 import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
 import net.runelite.api.DecorativeObject;
 import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
 import net.runelite.api.Item;
-import net.runelite.api.ItemID;
 import net.runelite.api.NPC;
-import net.runelite.api.NpcID;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.ConfigChanged;
 import net.runelite.api.events.DecorativeObjectDespawned;
 import net.runelite.api.events.DecorativeObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.events.NpcDespawned;
-import net.runelite.api.events.NpcSpawned;
-import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.game.npcoverlay.HighlightedNpc;
+import net.runelite.client.game.npcoverlay.NpcOverlayService;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -65,46 +60,47 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @PluginDescriptor(
 	name = "Runecraft",
 	description = "Show minimap icons and clickboxes for abyssal rifts",
-	tags = {"abyssal", "minimap", "overlay", "rifts", "rc", "runecrafting"}
+	tags = {"abyssal", "minimap", "overlay", "rifts", "rc", "runecrafting", "essence", "pouch"}
 )
 public class RunecraftPlugin extends Plugin
 {
-	private static Pattern bindNeckString = Pattern.compile("You have ([0-9]+|one) charges? left before your Binding necklace disintegrates.");
 	private static final String POUCH_DECAYED_NOTIFICATION_MESSAGE = "Your rune pouch has decayed.";
 	private static final String POUCH_DECAYED_MESSAGE = "Your pouch has decayed through use.";
-	private static final int DESTROY_ITEM_WIDGET_ID = WidgetInfo.DESTROY_ITEM_YES.getId();
 	private static final List<Integer> DEGRADED_POUCHES = ImmutableList.of(
-		ItemID.MEDIUM_POUCH_5511,
-		ItemID.LARGE_POUCH_5513,
-		ItemID.GIANT_POUCH_5515
+		ItemID.RCU_POUCH_MEDIUM_DEGRADE,
+		ItemID.RCU_POUCH_LARGE_DEGRADE,
+		ItemID.RCU_POUCH_GIANT_DEGRADE,
+		ItemID.RCU_POUCH_COLOSSAL_DEGRADE
 	);
+	static final int ABYSS_REGION = 12107;
 
 	@Getter(AccessLevel.PACKAGE)
 	private final Set<DecorativeObject> abyssObjects = new HashSet<>();
 
-	@Getter(AccessLevel.PACKAGE)
 	private boolean degradedPouchInInventory;
-
-	@Getter(AccessLevel.PACKAGE)
-	private NPC darkMage;
-
-	@Inject
-	private Client client;
 
 	@Inject
 	private OverlayManager overlayManager;
 
 	@Inject
-	private BindNeckOverlay bindNeckOverlay;
+	private AbyssOverlay abyssOverlay;
 
 	@Inject
-	private AbyssOverlay abyssOverlay;
+	private AbyssMinimapOverlay abyssMinimapOverlay;
+
+	@Inject
+	private EssencePouchOverlay essencePouchOverlay;
 
 	@Inject
 	private RunecraftConfig config;
 
 	@Inject
 	private Notifier notifier;
+
+	@Inject
+	private NpcOverlayService npcOverlayService;
+
+	private final Function<NPC, HighlightedNpc> highlightDarkMage = this::highlightDarkMage;
 
 	@Provides
 	RunecraftConfig getConfig(ConfigManager configManager)
@@ -115,98 +111,35 @@ public class RunecraftPlugin extends Plugin
 	@Override
 	protected void startUp() throws Exception
 	{
-		overlayManager.add(bindNeckOverlay);
+		npcOverlayService.registerHighlighter(highlightDarkMage);
 		overlayManager.add(abyssOverlay);
-		abyssOverlay.updateConfig();
+		overlayManager.add(abyssMinimapOverlay);
+		overlayManager.add(essencePouchOverlay);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
-		overlayManager.remove(bindNeckOverlay);
+		npcOverlayService.unregisterHighlighter(highlightDarkMage);
 		overlayManager.remove(abyssOverlay);
+		overlayManager.remove(abyssMinimapOverlay);
+		overlayManager.remove(essencePouchOverlay);
 		abyssObjects.clear();
-		darkMage = null;
 		degradedPouchInInventory = false;
-	}
-
-	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
-	{
-		abyssOverlay.updateConfig();
 	}
 
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
-		if (event.getType() != ChatMessageType.SERVER)
+		if (event.getType() != ChatMessageType.GAMEMESSAGE)
 		{
 			return;
 		}
 
-		if (config.showBindNeck())
+		if (event.getMessage().contains(POUCH_DECAYED_MESSAGE))
 		{
-			Matcher match = bindNeckString.matcher(event.getMessage());
-			if (match.find())
-			{
-				if (match.group(1).equals("one"))
-				{
-					bindNeckOverlay.bindingCharges = 1;
-				}
-				else
-				{
-					bindNeckOverlay.bindingCharges = Integer.parseInt(match.group(1));
-				}
-
-				return;
-			}
-
-			if (event.getMessage().contains("You bind the temple's power"))
-			{
-				if (event.getMessage().contains("mud")
-					|| event.getMessage().contains("lava")
-					|| event.getMessage().contains("steam")
-					|| event.getMessage().contains("dust")
-					|| event.getMessage().contains("smoke")
-					|| event.getMessage().contains("mist"))
-				{
-					bindNeckOverlay.bindingCharges -= 1;
-					return;
-				}
-			}
-
-			if (event.getMessage().contains("Your Binding necklace has disintegrated."))
-			{
-				//set it to 17 because this message is triggered first before the above chat event
-				bindNeckOverlay.bindingCharges = 17;
-				return;
-			}
+			notifier.notify(config.degradingNotification(), POUCH_DECAYED_NOTIFICATION_MESSAGE);
 		}
-		if (config.degradingNotification())
-		{
-			if (event.getMessage().contains(POUCH_DECAYED_MESSAGE))
-			{
-				notifier.notify(POUCH_DECAYED_NOTIFICATION_MESSAGE);
-				return;
-			}
-		}
-	}
-
-	@Subscribe
-	public void onMenuOptionClicked(MenuOptionClicked event)
-	{
-		if (event.getWidgetId() != DESTROY_ITEM_WIDGET_ID)
-		{
-			return;
-		}
-
-		Widget widgetDestroyItemName = client.getWidget(WidgetInfo.DESTROY_ITEM_NAME);
-		if (widgetDestroyItemName == null || !widgetDestroyItemName.getText().equals("Binding necklace"))
-		{
-			return;
-		}
-
-		bindNeckOverlay.bindingCharges = 16;
 	}
 
 	@Subscribe
@@ -229,17 +162,17 @@ public class RunecraftPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
-		if (event.getGameState() == GameState.LOADING)
+		GameState gameState = event.getGameState();
+		if (gameState == GameState.LOADING)
 		{
 			abyssObjects.clear();
-			darkMage = null;
 		}
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		if (event.getItemContainer() != client.getItemContainer(InventoryID.INVENTORY))
+		if (event.getContainerId() != InventoryID.INV)
 		{
 			return;
 		}
@@ -248,23 +181,17 @@ public class RunecraftPlugin extends Plugin
 		degradedPouchInInventory = Stream.of(items).anyMatch(i -> DEGRADED_POUCHES.contains(i.getId()));
 	}
 
-	@Subscribe
-	public void onNpcSpawned(NpcSpawned event)
+	private HighlightedNpc highlightDarkMage(NPC npc)
 	{
-		final NPC npc = event.getNpc();
-		if (npc.getId() == NpcID.DARK_MAGE)
+		if (npc.getId() == NpcID.RCU_ZAMMY_MAGE2)
 		{
-			darkMage = npc;
+			return HighlightedNpc.builder()
+				.npc(npc)
+				.tile(true)
+				.highlightColor(Color.GREEN)
+				.render(n -> config.hightlightDarkMage() && degradedPouchInInventory)
+				.build();
 		}
-	}
-
-	@Subscribe
-	public void onNpcDespawned(NpcDespawned event)
-	{
-		final NPC npc = event.getNpc();
-		if (npc == darkMage)
-		{
-			darkMage = null;
-		}
+		return null;
 	}
 }

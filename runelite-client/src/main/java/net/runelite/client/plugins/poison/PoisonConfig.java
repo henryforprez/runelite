@@ -35,11 +35,21 @@ public interface PoisonConfig extends Config
 
 	@ConfigItem(
 		keyName = "showInfoboxes",
-		name = "Show Infoboxes",
-		description = "Configures whether to show the infoboxes"
+		name = "Show infoboxes",
+		description = "Configures whether to show the infoboxes."
 	)
 	default boolean showInfoboxes()
 	{
 		return false;
+	}
+
+	@ConfigItem(
+		keyName = "changeHealthIcon",
+		name = "Change HP orb icon",
+		description = "Configures whether the HP orb icon should change color to match poison/disease."
+	)
+	default boolean changeHealthIcon()
+	{
+		return true;
 	}
 }

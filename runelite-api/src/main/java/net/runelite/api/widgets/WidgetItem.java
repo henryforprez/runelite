@@ -25,84 +25,73 @@
 package net.runelite.api.widgets;
 
 import java.awt.Rectangle;
+import javax.annotation.Nullable;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.ToString;
 import net.runelite.api.Point;
 
 /**
  * An item that is being represented in a {@link Widget}.
  */
+@AllArgsConstructor
+@ToString
+@Getter
 public class WidgetItem
 {
+	/**
+	 * The ID of the item represented.
+	 *
+	 * @see net.runelite.api.gameval.ItemID
+	 */
 	private final int id;
+	/**
+	 * The quantity of the represented item.
+	 */
 	private final int quantity;
-	private final int index;
+	/**
+	 * The area where the widget is drawn on the canvas.
+	 */
 	private final Rectangle canvasBounds;
-
-	public WidgetItem(int id, int quantity, int index, Rectangle canvasBounds)
-	{
-		this.id = id;
-		this.quantity = quantity;
-		this.index = index;
-		this.canvasBounds = canvasBounds;
-	}
-
-	@Override
-	public String toString()
-	{
-		return "WidgetItem{" + "id=" + id + ", quantity=" + quantity + ", index=" + index + ", canvasBounds=" + canvasBounds + '}';
-	}
-
 	/**
-	 * Gets the ID of the item represented.
-	 *
-	 * @return the items ID
-	 * @see net.runelite.api.ItemID
+	 * The widget which contains this item.
 	 */
-	public int getId()
-	{
-		return id;
-	}
-
+	private final Widget widget;
 	/**
-	 * Gets the quantity of the represented item.
-	 *
-	 * @return the items quantity
+	 * The canvas bounds for the widget, if it is being dragged.
 	 */
-	public int getQuantity()
-	{
-		return quantity;
-	}
+	@Nullable
+	private final Rectangle draggingCanvasBounds;
 
 	/**
-	 * Gets the index position of this WidgetItem inside its parents
-	 * WidgetItem array.
-	 *
-	 * @return the index in the parent widget
-	 * @see Widget#getWidgetItems()
-	 */
-	public int getIndex()
-	{
-		return index;
-	}
-
-	/**
-	 * Gets the area where the widget is drawn on the canvas.
-	 *
-	 * @return the occupied area of the widget
+	 * Get the area where the widget item is drawn on the canvas, accounting for drag
+	 * @return
 	 */
 	public Rectangle getCanvasBounds()
 	{
-		return canvasBounds;
+		return draggingCanvasBounds == null ? canvasBounds : draggingCanvasBounds;
+	}
+
+	/**
+	 * Get the area where the widget item is drawn on the canvas
+	 * @param dragging whether the returned area should account for widget drag
+	 * @return
+	 */
+	public Rectangle getCanvasBounds(boolean dragging)
+	{
+		return dragging ? draggingCanvasBounds : canvasBounds;
 	}
 
 	/**
 	 * Gets the upper-left coordinate of where the widget is being drawn
-	 * on the canvas.
+	 * on the canvas, accounting for drag.
 	 *
 	 * @return the upper-left coordinate of where this widget is drawn
 	 */
 	public Point getCanvasLocation()
 	{
-		return new Point((int) canvasBounds.getX(), (int) canvasBounds.getY());
+		Rectangle bounds = getCanvasBounds();
+		return new Point((int) bounds.getX(), (int) bounds.getY());
 	}
 
 }

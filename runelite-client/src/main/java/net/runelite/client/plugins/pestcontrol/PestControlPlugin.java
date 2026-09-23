@@ -34,14 +34,13 @@ import javax.inject.Inject;
 import lombok.AccessLevel;
 import lombok.Getter;
 import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.NPC;
-import net.runelite.api.NpcID;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -55,23 +54,20 @@ import net.runelite.client.ui.overlay.OverlayManager;
 public class PestControlPlugin extends Plugin
 {
 	private static final Set<Integer> SPINNER_IDS = ImmutableSet.of(
-		NpcID.SPINNER,
-		NpcID.SPINNER_1710,
-		NpcID.SPINNER_1711,
-		NpcID.SPINNER_1712,
-		NpcID.SPINNER_1713
+		NpcID.PEST_SPINNER_1,
+		NpcID.PEST_SPINNER_2,
+		NpcID.PEST_SPINNER_3,
+		NpcID.PEST_SPINNER_4,
+		NpcID.PEST_SPINNER_5
 	);
 
 	private final Pattern SHIELD_DROP = Pattern.compile("The ([a-z]+), [^ ]+ portal shield has dropped!", Pattern.CASE_INSENSITIVE);
 
 	@Getter(AccessLevel.PACKAGE)
-	private List<NPC> spinners = new ArrayList<>();
+	private final List<NPC> spinners = new ArrayList<>();
 
 	@Inject
 	private OverlayManager overlayManager;
-
-	@Inject
-	private Client client;
 
 	@Inject
 	private PestControlOverlay overlay;
@@ -92,7 +88,8 @@ public class PestControlPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
-		if (event.getGameState() == GameState.LOADING)
+		GameState gameState = event.getGameState();
+		if (gameState == GameState.CONNECTION_LOST || gameState == GameState.LOGIN_SCREEN || gameState == GameState.HOPPING)
 		{
 			spinners.clear();
 		}
@@ -101,7 +98,7 @@ public class PestControlPlugin extends Plugin
 	@Subscribe
 	public void onChatMessage(ChatMessage chatMessage)
 	{
-		if (overlay.getGame() != null && chatMessage.getType() == ChatMessageType.SERVER)
+		if (overlay.getGame() != null && chatMessage.getType() == ChatMessageType.GAMEMESSAGE)
 		{
 			Matcher matcher = SHIELD_DROP.matcher(chatMessage.getMessage());
 			if (matcher.lookingAt())

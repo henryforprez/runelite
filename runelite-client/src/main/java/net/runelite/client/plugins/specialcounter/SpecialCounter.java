@@ -24,29 +24,59 @@
  */
 package net.runelite.client.plugins.specialcounter;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
+import java.util.HashMap;
+import java.util.Map;
+import lombok.AccessLevel;
+import lombok.Getter;
 import net.runelite.client.ui.overlay.infobox.Counter;
 
 class SpecialCounter extends Counter
 {
-	private SpecialWeapon weapon;
+	private final SpecialWeapon weapon;
+	private final SpecialCounterConfig config;
+	@Getter(AccessLevel.PACKAGE)
+	private final Map<String, Integer> partySpecs = new HashMap<>();
 
-	SpecialCounter(BufferedImage image, SpecialCounterPlugin plugin, int hitValue, SpecialWeapon weapon)
+	SpecialCounter(BufferedImage image, SpecialCounterPlugin plugin, SpecialCounterConfig config, int hitValue, SpecialWeapon weapon)
 	{
 		super(image, plugin, hitValue);
 		this.weapon = weapon;
+		this.config = config;
 	}
 
-	void addHits(double hit)
+	void addHits(int hit)
 	{
 		int count = getCount();
-		setCount(count + (int) hit);
+		setCount(count + hit);
 	}
 
 	@Override
 	public String getTooltip()
 	{
 		int hitValue = getCount();
+
+		if (partySpecs.isEmpty())
+		{
+			return buildTooltip(hitValue);
+		}
+
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(buildTooltip(hitValue));
+
+		for (Map.Entry<String, Integer> entry : partySpecs.entrySet())
+		{
+			stringBuilder.append("</br>")
+				.append(entry.getKey() == null ? "You" : entry.getKey()).append(": ")
+				.append(buildTooltip(entry.getValue()));
+		}
+
+		return stringBuilder.toString();
+	}
+
+	private String buildTooltip(int hitValue)
+	{
 		if (!weapon.isDamage())
 		{
 			if (hitValue == 1)
@@ -62,5 +92,17 @@ class SpecialCounter extends Counter
 		{
 			return weapon.getName() + " special has hit " + hitValue + " total.";
 		}
+	}
+
+	@Override
+	public Color getTextColor()
+	{
+		int threshold = weapon.getThreshold().apply(config);
+		if (threshold > 0)
+		{
+			int count = getCount();
+			return count >= threshold ? Color.GREEN : Color.RED;
+		}
+		return super.getTextColor();
 	}
 }
